@@ -1,1 +1,6 @@
 DistanceFFT_Matlab
+acoustic/data
+*.pyc
+*.mp4
+*.wav
+*.csv
