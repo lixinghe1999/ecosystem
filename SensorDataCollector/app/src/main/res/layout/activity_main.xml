@@ -71,8 +71,23 @@
     </Button>
 
     <Button
-        android:id="@+id/btn_mic"
-        android:text="Microphone"
+        android:id="@+id/btn_active"
+        android:text="Active"
+        android:layout_gravity="center"
+        android:layout_height="wrap_content"
+        android:layout_width="match_parent">
+    </Button>
+    <Button
+        android:id="@+id/btn_passive"
+        android:text="Passive"
+        android:layout_gravity="center"
+        android:layout_height="wrap_content"
+        android:layout_width="match_parent">
+    </Button>
+
+    <Button
+        android:id="@+id/btn_bluetooth"
+        android:text="Bluetooth"
         android:layout_gravity="center"
         android:layout_height="wrap_content"
         android:layout_width="match_parent">
@@ -110,6 +125,8 @@
         app:cameraVideoSizeMinHeight="100"
         app:cameraVideoSizeMaxWidth="640"
         app:cameraVideoSizeMaxHeight="640"
+
+        app:cameraAudio="stereo"
         />
 
 </LinearLayout>

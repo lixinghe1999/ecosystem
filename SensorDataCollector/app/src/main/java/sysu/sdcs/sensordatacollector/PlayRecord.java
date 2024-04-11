@@ -1,6 +1,10 @@
 package sysu.sdcs.sensordatacollector;
 
+import static androidx.core.content.ContextCompat.getSystemService;
+
+import android.content.Context;
 import android.media.AudioFormat;
+import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
@@ -19,7 +23,7 @@ import java.nio.ByteOrder;
 
 public class PlayRecord {
     private static final int SAMPLE_RATE = 48000;
-    private static final int CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO;
+    private static final int CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_STEREO;
     private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
     int BufferElements2Rec = 1024; // want to play 2048 (2K) since 2 bytes we use only 1024
     int BytesPerElement = 2;
@@ -27,6 +31,7 @@ public class PlayRecord {
     private MediaPlayer mediaPlayer;
     private Thread recordingThread = null;
     private boolean isRecording = false;
+
     public void startRecordingWhilePlayingMusic(String file_name) {
         audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT,
                 BufferElements2Rec * BytesPerElement);
@@ -34,6 +39,7 @@ public class PlayRecord {
         // Start playing music from file
         String musicFilePath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/FMCW.wav";
         mediaPlayer = new MediaPlayer();
+
         try {
             mediaPlayer.setDataSource(musicFilePath);
             mediaPlayer.prepare();
@@ -43,6 +49,18 @@ public class PlayRecord {
             e.printStackTrace();
         }
 
+        audioRecord.startRecording();
+        recordingThread = new Thread(new Runnable() {
+            public void run() {
+                writeAudioDataToFile(file_name + ".pcm");
+            }
+        }, "AudioRecorder Thread");
+        recordingThread.start();
+    }
+    public void startRecording(String file_name) {
+        audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT,
+                BufferElements2Rec * BytesPerElement);
+        isRecording = true;
         audioRecord.startRecording();
         recordingThread = new Thread(new Runnable() {
             public void run() {
@@ -70,6 +88,14 @@ public class PlayRecord {
             e.printStackTrace();
         }
 
+    }
+    public void stopRecording(String file_name) {
+        if (isRecording) {
+            isRecording = false;
+            audioRecord.stop();
+            audioRecord.release();
+            audioRecord = null;
+        }
     }
     private void writeAudioDataToFile(String filePath) {
         // Write the output audio in byte
@@ -102,6 +128,7 @@ public class PlayRecord {
             e.printStackTrace();
         }
     }
+
     private byte[] short2byte(short[] sData) {
         int shortArrsize = sData.length;
         byte[] bytes = new byte[shortArrsize * 2];
@@ -137,7 +164,7 @@ public class PlayRecord {
             writeString(output, "fmt "); // subchunk 1 id
             writeInt(output, 16); // subchunk 1 size
             writeShort(output, (short) 1); // audio format (1 = PCM)
-            writeShort(output, (short) 1); // number of channels
+            writeShort(output, (short) 2); // number of channels
             writeInt(output, 48000); // sample rate
             writeInt(output, SAMPLE_RATE * 2); // byte rate
             writeShort(output, (short) 2); // block align

@@ -1,15 +1,19 @@
 package sysu.sdcs.sensordatacollector;
 
+import static androidx.core.content.ContextCompat.getSystemService;
+
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
@@ -24,15 +28,21 @@ import com.otaliastudios.cameraview.CameraListener;
 import com.otaliastudios.cameraview.CameraView;
 import com.otaliastudios.cameraview.PictureResult;
 import com.otaliastudios.cameraview.VideoResult;
+import com.otaliastudios.cameraview.controls.Audio;
 import com.otaliastudios.cameraview.controls.Facing;
 import com.otaliastudios.cameraview.controls.Flash;
 import com.otaliastudios.cameraview.controls.Mode;
+import com.wit.witsdk.sensor.modular.connector.modular.bluetooth.WitBluetoothManager;
 
 import java.io.File;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+
+import android.location.LocationListener;
+import android.location.LocationManager;
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -44,7 +54,7 @@ public class MainActivity extends AppCompatActivity {
     private Sensor accelerometerSensor;
     private Sensor gyroscopeSensor;
 
-    private Button btn_imu, btn_back, btn_mic, btn_front;
+    private Button btn_imu, btn_back, btn_front, btn_passive, btn_active, btn_bluetooth;
     private EditText edt_path;
     private TextView tv_state;
     private TextView tv_record;
@@ -56,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
     public static String file_path = Environment.getExternalStorageDirectory().getAbsolutePath()
             + "/SensorData/";
     private CameraView camera;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -64,7 +75,9 @@ public class MainActivity extends AppCompatActivity {
         init();
         btn_imu.setOnClickListener(imu_listener);
         btn_back.setOnClickListener(back_listener);
-        btn_mic.setOnClickListener(mic_listener);
+        btn_active.setOnClickListener(active_listener);
+        btn_passive.setOnClickListener(passive_listener);
+
         btn_front.setOnClickListener(front_listener);
 
         camera = findViewById(R.id.camera);
@@ -96,12 +109,16 @@ public class MainActivity extends AppCompatActivity {
         gyroscopeSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
 
         btn_back = findViewById(R.id.btn_back);
-        btn_mic = findViewById(R.id.btn_mic);
+        btn_active = findViewById(R.id.btn_active);
+        btn_passive = findViewById(R.id.btn_passive);
         btn_front = findViewById(R.id.btn_front);
         permissionCheck();
     }
+//    public void bluetooth_init() throws Exception {
+//        WitBluetoothManager.initInstance(this);
+//    }
 
-    public void permissionCheck(){
+        public void permissionCheck(){
         if(ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED){
             //申请WRITE_EXTERNAL_STORAGE权限
@@ -127,28 +144,57 @@ public class MainActivity extends AppCompatActivity {
                     REQ_CODE_PERMISSION_SENSOR);
         }
     }
-    private View.OnClickListener mic_listener = new View.OnClickListener() {
+    private View.OnClickListener active_listener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
             if(edt_path.getText().toString().equals("") ||
                     edt_path.getText().toString() == null) {
                 Toast.makeText(MainActivity.this, "path ID 不能为空", Toast.LENGTH_SHORT).show();
             }
-            else if(btn_mic.getText().toString().equals("Microphone")){
+            else if(btn_active.getText().toString().equals("Active")){
                 camera.close();
                 playrecorder = new PlayRecord();
-                file_name = file_path + "/" + edt_path.getText().toString() + "-" + "mic-" +
-                        (UUIDUtil.generateRandomString(4));
+                long milliseconds = System.currentTimeMillis();
+                file_name = file_path + "/" + edt_path.getText().toString() + "-" +
+                        milliseconds;
                 playrecorder.startRecordingWhilePlayingMusic(file_name);
                 tv_state.setText("传感器数据正在采集中\n" + "当前采集路径为: " + edt_path.getText().toString());
-                btn_mic.setText("stop");
+                btn_active.setText("stop");
             }
             else{
                 playrecorder.stopRecordingWhilePlayingMusic(file_name);
                 cap_records = file_name;
                 tv_record.setText(cap_records);
                 Toast.makeText(MainActivity.this, "传感器数据保存成功", Toast.LENGTH_SHORT).show();
-                btn_mic.setText("Microphone");
+                btn_active.setText("Active");
+                tv_state.setText("点击按钮开始采集\n");
+            }
+
+        }
+    };
+    private View.OnClickListener passive_listener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            if(edt_path.getText().toString().equals("") ||
+                    edt_path.getText().toString() == null) {
+                Toast.makeText(MainActivity.this, "path ID 不能为空", Toast.LENGTH_SHORT).show();
+            }
+            else if(btn_passive.getText().toString().equals("Passive")){
+                camera.close();
+                playrecorder = new PlayRecord();
+                long milliseconds = System.currentTimeMillis();
+                file_name = file_path + "/" + edt_path.getText().toString() + "-" +
+                        milliseconds;
+                playrecorder.startRecording(file_name);
+                tv_state.setText("传感器数据正在采集中\n" + "当前采集路径为: " + edt_path.getText().toString());
+                btn_passive.setText("stop");
+            }
+            else{
+                playrecorder.stopRecording(file_name);
+                cap_records = file_name;
+                tv_record.setText(cap_records);
+                Toast.makeText(MainActivity.this, "传感器数据保存成功", Toast.LENGTH_SHORT).show();
+                btn_passive.setText("Passive");
                 tv_state.setText("点击按钮开始采集\n");
             }
 
@@ -197,6 +243,8 @@ public class MainActivity extends AppCompatActivity {
             else if(btn_front.getText().toString().equals("Front camera")){
                 camera.open();
                 camera.setFacing(Facing.FRONT);
+                camera.setAudio(Audio.STEREO);
+                camera.setAudioBitRate(0);
 
                 file_name = file_path + "/" + edt_path.getText().toString() + "-" + "front-" +
                         (UUIDUtil.generateRandomString(4)) + ".mp4";
