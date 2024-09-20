@@ -1,7 +1,4 @@
 package sysu.sdcs.sensordatacollector;
-
-import static androidx.core.content.ContextCompat.getSystemService;
-
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -32,16 +29,16 @@ import com.otaliastudios.cameraview.controls.Audio;
 import com.otaliastudios.cameraview.controls.Facing;
 import com.otaliastudios.cameraview.controls.Flash;
 import com.otaliastudios.cameraview.controls.Mode;
-import com.wit.witsdk.sensor.modular.connector.modular.bluetooth.WitBluetoothManager;
 
 import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import android.location.LocationListener;
-import android.location.LocationManager;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -51,16 +48,16 @@ public class MainActivity extends AppCompatActivity {
 
     private SensorManager sensorManager;
     private SensorListener sensorListener;
-    private Sensor accelerometerSensor;
-    private Sensor gyroscopeSensor;
+    private SensorWakeupListener sensorWakeupListener;
+    private Sensor accelerometerSensor, gyroscopeSensor;
 
-    private Button btn_imu, btn_back, btn_front, btn_passive, btn_active, btn_bluetooth;
+    private Button btn_imu, btn_back, btn_front, btn_passive, btn_active, btn_earphone;
     private EditText edt_path;
     private TextView tv_state;
     private TextView tv_record;
 
     private ScheduledFuture future;
-    private String file_name = "";
+    private String file_name = ""; String imu_name = ""; String audio_name = "";
     private String cap_records = "";
     private PlayRecord playrecorder;
     public static String file_path = Environment.getExternalStorageDirectory().getAbsolutePath()
@@ -75,61 +72,45 @@ public class MainActivity extends AppCompatActivity {
         init();
         btn_imu.setOnClickListener(imu_listener);
         btn_back.setOnClickListener(back_listener);
-        btn_active.setOnClickListener(active_listener);
         btn_passive.setOnClickListener(passive_listener);
-
-        btn_front.setOnClickListener(front_listener);
-
-        camera = findViewById(R.id.camera);
-        camera.setLifecycleOwner(this);
-        camera.addCameraListener(new CameraListener() {
-            @Override
-            public void onPictureTaken(PictureResult result) {
-                // A Picture was taken!
-            }
-
-            @Override
-            public void onVideoTaken(VideoResult result) {
-                // A Video was taken!
-            }
-
-            // And much more
-        });
+        btn_earphone.setOnClickListener(earphone_listener);
     }
 
     public void init(){
+        permissionCheck();
         btn_imu = findViewById(R.id.btn_imu);
         edt_path = findViewById(R.id.edt_pathID);
         tv_state = findViewById(R.id.state);
         tv_record = findViewById(R.id.record);
+        camera = findViewById(R.id.camera);
+        camera.setLifecycleOwner(this);
 
         sensorListener = new SensorListener();
+        sensorWakeupListener = new SensorWakeupListener();
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         gyroscopeSensor = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
 
         btn_back = findViewById(R.id.btn_back);
-        btn_active = findViewById(R.id.btn_active);
         btn_passive = findViewById(R.id.btn_passive);
-        btn_front = findViewById(R.id.btn_front);
-        permissionCheck();
+        btn_earphone = findViewById(R.id.btn_earphone);
+        camera.addCameraListener(new CameraListener() {
+            @Override
+            public void onVideoTaken(VideoResult result) {
+                // Video was taken!
+                // Use result.getFile() to access a file holding
+                // the recorded video.
+            }
+        });
+        camera.close();
     }
-//    public void bluetooth_init() throws Exception {
-//        WitBluetoothManager.initInstance(this);
-//    }
 
-        public void permissionCheck(){
+    public void permissionCheck(){
         if(ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 != PackageManager.PERMISSION_GRANTED){
             //申请WRITE_EXTERNAL_STORAGE权限
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
                     REQ_CODE_PERMISSION_EXTERNAL_STORAGE);
-        }
-        if(ContextCompat.checkSelfPermission(this, Manifest.permission.BODY_SENSORS)
-                != PackageManager.PERMISSION_GRANTED){
-            //申请BODY_SENSOR权限
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.BODY_SENSORS},
-                    REQ_CODE_PERMISSION_SENSOR);
         }
         if(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED){
@@ -139,35 +120,148 @@ public class MainActivity extends AppCompatActivity {
         }
         if(ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 != PackageManager.PERMISSION_GRANTED){
-            //申请CAMERA权限
+            //申请AUDIO权限
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO},
                     REQ_CODE_PERMISSION_SENSOR);
         }
     }
-    private View.OnClickListener active_listener = new View.OnClickListener() {
+
+
+    private void Start_Camera() {
+        camera.open();
+        camera.setFacing(Facing.BACK);
+        camera.setAudio(Audio.STEREO);
+        camera.setAudioBitRate(0);
+        String date_string = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS").format(new Date());
+        file_name = file_path + "/" + edt_path.getText().toString() + "-" + date_string + ".mp4";
+
+        camera.setMode(Mode.VIDEO);
+        camera.takeVideo(new File(file_name));
+
+        //camera.setFlash(Flash.TORCH);
+        tv_state.setText("传感器数据正在采集中\n" + "当前采集路径: " + edt_path.getText().toString());
+    }
+    private void End_Camera() {
+        camera.stopVideo();
+        camera.close();
+        //camera.setFlash(Flash.OFF);
+        cap_records = file_name;
+        tv_record.setText(cap_records);
+        Toast.makeText(MainActivity.this, "传感器数据保存成功", Toast.LENGTH_SHORT).show();
+        tv_state.setText("点击按钮开始采集\n");
+
+    }
+    private View.OnClickListener back_listener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
             if(edt_path.getText().toString().equals("") ||
                     edt_path.getText().toString() == null) {
                 Toast.makeText(MainActivity.this, "path ID 不能为空", Toast.LENGTH_SHORT).show();
             }
-            else if(btn_active.getText().toString().equals("Active")){
-                camera.close();
-                playrecorder = new PlayRecord();
-                long milliseconds = System.currentTimeMillis();
-                file_name = file_path + "/" + edt_path.getText().toString() + "-" +
-                        milliseconds;
-                playrecorder.startRecordingWhilePlayingMusic(file_name);
-                tv_state.setText("传感器数据正在采集中\n" + "当前采集路径为: " + edt_path.getText().toString());
-                btn_active.setText("stop");
+            else if(btn_back.getText().toString().equals("Back camera")){
+                Start_Camera();
+                btn_back.setText("stop");
             }
             else{
-                playrecorder.stopRecordingWhilePlayingMusic(file_name);
-                cap_records = file_name;
-                tv_record.setText(cap_records);
-                Toast.makeText(MainActivity.this, "传感器数据保存成功", Toast.LENGTH_SHORT).show();
-                btn_active.setText("Active");
-                tv_state.setText("点击按钮开始采集\n");
+                End_Camera();
+                btn_back.setText("Back camera");
+            }
+        }
+    };
+
+    private void Start_IMU(){
+        camera.close();
+        if(!sensorManager.registerListener(sensorListener, accelerometerSensor, SensorManager.SENSOR_DELAY_GAME ))
+            Toast.makeText(MainActivity.this, "加速度传感器不可用", Toast.LENGTH_SHORT).show();
+        if(!sensorManager.registerListener(sensorListener, gyroscopeSensor, SensorManager.SENSOR_DELAY_GAME))
+            Toast.makeText(MainActivity.this, "陀螺仪不可用", Toast.LENGTH_SHORT).show();
+
+        InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
+        }
+
+        tv_state.setText("传感器数据正在采集中\n" + "当前采集路径为: " + edt_path.getText().toString());
+        btn_imu.setText("stop");
+
+        String date_string = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS").format(new Date());
+        imu_name = edt_path.getText().toString() + "-" + date_string + ".csv";
+
+        SensorData.init(imu_name);
+        //FileUtil.saveSensorData(imu_name, SensorData.getFileHead());
+        ScheduledExecutorService service = Executors.newScheduledThreadPool(5);
+        future = service.scheduleAtFixedRate(new DataSaveTask(imu_name), 5, 5, TimeUnit.SECONDS);
+    }
+    private void End_IMU(){
+        future.cancel(true);
+        sensorManager.unregisterListener(sensorListener);
+//        if (true)
+        if(SensorData.saveSensorData_batch(imu_name))
+        {
+            cap_records = imu_name;
+            tv_record.setText(cap_records);
+            tv_state.setText("");
+            Toast.makeText(MainActivity.this, "传感器数据保存成功", Toast.LENGTH_SHORT).show();
+        }
+        else
+            Toast.makeText(MainActivity.this, "传感器数据保存失败", Toast.LENGTH_SHORT).show();
+        SensorData.clear();
+        btn_imu.setText("IMU");
+        tv_state.setText("点击按钮开始采集\n");
+    }
+
+    private void Start_Audio(){
+        camera.close();
+        playrecorder = new PlayRecord();
+        String date_string = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS").format(new Date());
+        audio_name = file_path + "/" + edt_path.getText().toString() + "-" + date_string;
+        playrecorder.startRecording(audio_name);
+        tv_state.setText("传感器数据正在采集中\n" + "当前采集路径为: " + edt_path.getText().toString());
+
+    }
+
+    private void End_Audio(){
+        playrecorder.stopRecording(audio_name);
+        cap_records = audio_name;
+        tv_record.setText(cap_records);
+        Toast.makeText(MainActivity.this, "传感器数据保存成功", Toast.LENGTH_SHORT).show();
+
+        tv_state.setText("点击按钮开始采集\n");
+    }
+
+
+    private View.OnClickListener earphone_listener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            if(edt_path.getText().toString().equals("") ||
+                    edt_path.getText().toString() == null) {
+                Toast.makeText(MainActivity.this, "path ID 不能为空", Toast.LENGTH_SHORT).show();
+            }
+            else if(btn_earphone.getText().toString().equals("Earphone")){
+               Start_Audio();
+               btn_earphone.setText("stop");
+               Start_IMU();
+            }
+            else{
+                End_Audio();
+                btn_earphone.setText("Earphone");
+                End_IMU();
+            }
+
+        }
+    };
+    private View.OnClickListener imu_listener  = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            if(edt_path.getText().toString().equals("") ||
+                    edt_path.getText().toString() == null) {
+                Toast.makeText(MainActivity.this, "path ID 不能为空", Toast.LENGTH_SHORT).show();
+            }
+            else if(btn_imu.getText().toString().equals("IMU")){
+                Start_IMU();
+            }
+            else{
+                End_IMU();
             }
 
         }
@@ -180,137 +274,16 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, "path ID 不能为空", Toast.LENGTH_SHORT).show();
             }
             else if(btn_passive.getText().toString().equals("Passive")){
-                camera.close();
-                playrecorder = new PlayRecord();
-                long milliseconds = System.currentTimeMillis();
-                file_name = file_path + "/" + edt_path.getText().toString() + "-" +
-                        milliseconds;
-                playrecorder.startRecording(file_name);
-                tv_state.setText("传感器数据正在采集中\n" + "当前采集路径为: " + edt_path.getText().toString());
+               Start_Audio();
                 btn_passive.setText("stop");
             }
             else{
-                playrecorder.stopRecording(file_name);
-                cap_records = file_name;
-                tv_record.setText(cap_records);
-                Toast.makeText(MainActivity.this, "传感器数据保存成功", Toast.LENGTH_SHORT).show();
+                End_Audio();
                 btn_passive.setText("Passive");
-                tv_state.setText("点击按钮开始采集\n");
             }
 
         }
     };
-
-    private View.OnClickListener back_listener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            if(edt_path.getText().toString().equals("") ||
-                    edt_path.getText().toString() == null) {
-                Toast.makeText(MainActivity.this, "path ID 不能为空", Toast.LENGTH_SHORT).show();
-            }
-            else if(btn_back.getText().toString().equals("Back camera")){
-                camera.open();
-                camera.setFacing(Facing.BACK);
-
-                file_name = file_path + "/" + edt_path.getText().toString() + "-" + "back-" +
-                        (UUIDUtil.generateRandomString(4)) + ".mp4";
-                camera.setMode(Mode.VIDEO);
-                camera.takeVideo(new File(file_name));
-                camera.setFlash(Flash.TORCH);
-                tv_state.setText("传感器数据正在采集中\n" + "当前采集路径: " + edt_path.getText().toString());
-                btn_back.setText("stop");
-            }
-            else{
-                camera.stopVideo();
-                camera.close();
-                camera.setFlash(Flash.OFF);
-                cap_records = file_name;
-                tv_record.setText(cap_records);
-                Toast.makeText(MainActivity.this, "传感器数据保存成功", Toast.LENGTH_SHORT).show();
-                btn_back.setText("Back camera");
-                tv_state.setText("点击按钮开始采集\n");
-            }
-
-        }
-    };
-    private View.OnClickListener front_listener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            if(edt_path.getText().toString().equals("") ||
-                    edt_path.getText().toString() == null) {
-                Toast.makeText(MainActivity.this, "path ID 不能为空", Toast.LENGTH_SHORT).show();
-            }
-            else if(btn_front.getText().toString().equals("Front camera")){
-                camera.open();
-                camera.setFacing(Facing.FRONT);
-                camera.setAudio(Audio.STEREO);
-                camera.setAudioBitRate(0);
-
-                file_name = file_path + "/" + edt_path.getText().toString() + "-" + "front-" +
-                        (UUIDUtil.generateRandomString(4)) + ".mp4";
-                camera.setMode(Mode.VIDEO);
-                camera.takeVideo(new File(file_name));
-                tv_state.setText("传感器数据正在采集中\n" + "当前采集路径为: " + edt_path.getText().toString());
-                btn_front.setText("stop");
-            }
-            else{
-                camera.stopVideo();
-                camera.close();
-                cap_records = file_name;
-                tv_record.setText(cap_records);
-                Toast.makeText(MainActivity.this, "传感器数据保存成功", Toast.LENGTH_SHORT).show();
-                btn_front.setText("Front camera");
-                tv_state.setText("点击按钮开始采集\n");
-            }
-
-        }
-    };
-    private View.OnClickListener imu_listener = new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            if(edt_path.getText().toString().equals("") ||
-                    edt_path.getText().toString() == null) {
-                Toast.makeText(MainActivity.this, "path ID 不能为空", Toast.LENGTH_SHORT).show();
-            }
-            else if(btn_imu.getText().toString().equals("IMU")){
-                camera.close();
-                if(!sensorManager.registerListener(sensorListener, accelerometerSensor, SensorManager.SENSOR_DELAY_FASTEST ))
-                    Toast.makeText(MainActivity.this, "加速度传感器不可用", Toast.LENGTH_SHORT).show();
-                if(!sensorManager.registerListener(sensorListener, gyroscopeSensor, SensorManager.SENSOR_DELAY_FASTEST))
-                    Toast.makeText(MainActivity.this, "陀螺仪不可用", Toast.LENGTH_SHORT).show();
-
-                InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                if (imm != null) {
-                    imm.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
-                }
-
-                tv_state.setText("传感器数据正在采集中\n" + "当前采集路径为: " + edt_path.getText().toString());
-                btn_imu.setText("stop");
-                file_name = edt_path.getText().toString() + "-" + "imu-" +
-                        (UUIDUtil.generateRandomString(4))+ ".csv";
-                FileUtil.saveSensorData(file_name, SensorData.getFileHead());
-                ScheduledExecutorService service = Executors.newScheduledThreadPool(5);
-                future = service.scheduleAtFixedRate(new DataSaveTask(file_name), 5, 5, TimeUnit.SECONDS);
-            }
-            else{
-                future.cancel(true);
-                sensorManager.unregisterListener(sensorListener);
-                if(FileUtil.saveSensorData(file_name, SensorData.getAccGyroDataStr())){
-                    cap_records = file_name;
-                    tv_record.setText(cap_records);
-                    tv_state.setText("");
-                    Toast.makeText(MainActivity.this, "传感器数据保存成功", Toast.LENGTH_SHORT).show();
-                }
-                else
-                    Toast.makeText(MainActivity.this, "传感器数据保存失败", Toast.LENGTH_SHORT).show();
-                SensorData.clear();
-                btn_imu.setText("IMU");
-                tv_state.setText("点击按钮开始采集\n");
-            }
-
-        }
-    };
-
     //权限申请
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {

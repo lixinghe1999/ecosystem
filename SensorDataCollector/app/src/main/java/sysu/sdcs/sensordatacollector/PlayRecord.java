@@ -32,6 +32,7 @@ public class PlayRecord {
     private Thread recordingThread = null;
     private boolean isRecording = false;
 
+
     public void startRecordingWhilePlayingMusic(String file_name) {
         audioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT,
                 BufferElements2Rec * BytesPerElement);
@@ -96,6 +97,15 @@ public class PlayRecord {
             audioRecord.release();
             audioRecord = null;
         }
+//        File f1 = new File(file_name + ".pcm"); // The location of your PCM file
+//        File f2 = new File(file_name + ".wav"); // The location where you want your WAV file
+//        try {
+//            rawToWave(f1, f2);
+//            boolean deleted = f1.delete();
+//            Log.d("delete the pcm file", "" + deleted);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
     }
     private void writeAudioDataToFile(String filePath) {
         // Write the output audio in byte

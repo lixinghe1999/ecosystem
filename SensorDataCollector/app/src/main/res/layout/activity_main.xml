@@ -54,49 +54,31 @@
         android:layout_width="match_parent">
     </Button>
 
-    <Button
-        android:id="@+id/btn_back"
-        android:text="Back camera"
-        android:layout_gravity="center"
-        android:layout_height="wrap_content"
-        android:layout_width="match_parent">
-    </Button>
-
-    <Button
-        android:id="@+id/btn_front"
-        android:text="Front camera"
-        android:layout_gravity="center"
-        android:layout_height="wrap_content"
-        android:layout_width="match_parent">
-    </Button>
-
-    <Button
-        android:id="@+id/btn_active"
-        android:text="Active"
-        android:layout_gravity="center"
-        android:layout_height="wrap_content"
-        android:layout_width="match_parent">
-    </Button>
-    <Button
-        android:id="@+id/btn_passive"
-        android:text="Passive"
-        android:layout_gravity="center"
-        android:layout_height="wrap_content"
-        android:layout_width="match_parent">
-    </Button>
-
-    <Button
-        android:id="@+id/btn_bluetooth"
-        android:text="Bluetooth"
-        android:layout_gravity="center"
-        android:layout_height="wrap_content"
-        android:layout_width="match_parent">
-    </Button>
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
+
+        <Button
+            android:id="@+id/btn_passive"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="Passive"></Button>
+
+        <Button
+            android:id="@+id/btn_earphone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="Earphone"></Button>
+
+        <Button
+            android:id="@+id/btn_back"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="Back camera"></Button>
 
         <TextView
             android:paddingTop="15dp"
@@ -111,22 +93,22 @@
             android:layout_height="wrap_content" />
 
     </LinearLayout>
+
     <com.otaliastudios.cameraview.CameraView
         android:id="@+id/camera"
-        android:keepScreenOn="true"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        app:cameraPictureSizeMinWidth="100"
-        app:cameraPictureSizeMinHeight="100"
-        app:cameraPictureSizeMaxWidth="640"
-        app:cameraPictureSizeMaxHeight="640"
-
-        app:cameraVideoSizeMinWidth="100"
-        app:cameraVideoSizeMinHeight="100"
-        app:cameraVideoSizeMaxWidth="640"
-        app:cameraVideoSizeMaxHeight="640"
+        android:keepScreenOn="false"
 
         app:cameraAudio="stereo"
+        app:cameraPreviewFrameRate="30"
+        app:cameraVideoSizeMaxWidth="720"
+        app:cameraVideoSizeMaxHeight="1080"
         />
+
+
+
+
+
 
 </LinearLayout>
